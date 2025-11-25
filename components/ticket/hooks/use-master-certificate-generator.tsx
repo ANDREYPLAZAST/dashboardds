@@ -18,7 +18,7 @@ const normalizeClassType = (type: string): string => {
 };
 
 export function useCertificateGenerator() {
-  const { generateDateCertificatePDF } = useDateCertificateGenerator();
+  const { generateDateCertificate, generateMultipleDateCertificates } = useDateCertificateGenerator();
   const { generateSingleBdiCertificate: generateBdiCertificatePDF } = useBdiCertificateGenerator();
   const { generateSingleAdiCertificate } = useAdiCertificateGenerator();
   const { generateSingleInsuranceCertificate } = useInsuranceCertificateGenerator();
@@ -120,8 +120,17 @@ export function useCertificateGenerator() {
 
         return generateSingleInsuranceCertificate(user, '/templates_certificates/insurance.pdf');
       } else if (certType === "DATE") {
+        // Map Student -> DateCertificateData expected by the DATE generator
+        const dateData = {
+          studentName: `${user.first_name ? user.first_name.toUpperCase() : ''} ${user.last_name ? user.last_name.toUpperCase() : ''}`.trim(),
+          birthDate: user.birthDate ? new Date(user.birthDate).toLocaleDateString('en-US') : '',
+          certificateNumber: user.certn !== null && user.certn !== undefined ? String(user.certn) : '',
+          courseDate: user.courseDate
+            ? new Date(user.courseDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })
+            : '',
+        };
 
-        return generateDateCertificatePDF(user);
+        return await generateDateCertificate(dateData);
       } else if (certType === "YOUTHFUL OFFENDER CLASS" || certType === "YOUTHFUL-OFFENDER-CLASS") {
 
         return generateSingleYouthfulOffenderCertificate(user, '/templates_certificates/youthful-offender-class.pdf');
@@ -157,7 +166,7 @@ export function useCertificateGenerator() {
       }
     },
     [
-      generateDateCertificatePDF,
+      generateDateCertificate,
       generateBdiCertificatePDF,
       generateSingleAdiCertificate,
       generateSingleInsuranceCertificate,
