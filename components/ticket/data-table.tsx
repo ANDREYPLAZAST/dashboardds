@@ -70,7 +70,7 @@ export function DataTable({ columns, data, onUpdate, template }: DataTableProps)
   const { generateSingleAdiCertificate, generateMultipleAdiCertificates } = useAdiCertificateGenerator();
   const { generateSingleBdiCertificate, generateMultipleBdiCertificates } = useBdiCertificateGenerator();
   const { generateSingleInsuranceCertificate, generateMultipleInsuranceCertificates } = useInsuranceCertificateGenerator();
-  const { generateDateCertificatePDF, generateMultipleDateCertificates, generateCombinedDateCertificates } = useDateCertificateGenerator();
+  const { generateDateCertificate, generateMultipleDateCertificates } = useDateCertificateGenerator();
   const { generateSingleYouthfulOffenderCertificate, generateMultipleYouthfulOffenderCertificates } = useYouthfulOffenderCertificateGenerator();
 
   const table = useReactTable({
@@ -509,7 +509,22 @@ export function DataTable({ columns, data, onUpdate, template }: DataTableProps)
         }
       } else if (isDate) {
 
-        pdfBlob = await generateCombinedDateCertificates(validStudents);
+        const result = await generateMultipleDateCertificates(validStudents);
+        if (Array.isArray(result) && result.length > 1) {
+
+          const combinedPdf = await PDFDocument.create();
+          for (const pdfBlobItem of result) {
+            const pdfBytes = await pdfBlobItem.arrayBuffer();
+            const pdf = await PDFDocument.load(pdfBytes);
+            const pages = await combinedPdf.copyPages(pdf, pdf.getPageIndices());
+            pages.forEach((page) => combinedPdf.addPage(page));
+          }
+          pdfBlob = new Blob([await combinedPdf.save()], { type: 'application/pdf' });
+        } else if (Array.isArray(result) && result[0]) {
+          pdfBlob = result[0];
+        } else if (!Array.isArray(result)) {
+          pdfBlob = result;
+        }
       } else {
 
         pdfBlob = await generateMultipleCertificatesPDF(validStudents, template);

@@ -3,162 +3,139 @@
 import { Student } from "../columns";
 import { useCallback } from "react";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { getDatePositionCoordinates } from "@/lib/certificateDateCoordinates";
 
-/**
- * Generador específico para certificados DATE
- * USA LAS MISMAS COORDENADAS QUE useUnifiedCertificateGenerator
- */
+export interface DateCertificateData {
+  studentName: string;
+  birthDate: string;
+  certificateNumber: string;
+  courseDate: string;
+}
+
 export function useDateCertificateGenerator() {
-  /**
-   * Genera un PDF para certificado DATE
-   */
-  const generateDateCertificatePDF = useCallback(
-    async (student: Student) => {
+  const generateDateCertificate = useCallback(async (data: DateCertificateData) => {
+    try {
+      const pdfTemplatePath = '/templates_certificates/date.pdf';
 
-      try {
-        // Usar el template por defecto para DATE
-        const pdfTemplatePath = '/templates_certificates/date.pdf';
-
-        // Cargar el template PDF
-        const templateResponse = await fetch(pdfTemplatePath);
-        if (!templateResponse.ok) {
-          throw new Error(`Failed to load PDF template: ${pdfTemplatePath}`);
-        }
-
-        const templateBytes = await templateResponse.arrayBuffer();
-        const pdfDoc = await PDFDocument.load(templateBytes);
-
-        // Obtener la primera página
-        const pages = pdfDoc.getPages();
-        const firstPage = pages[0];
-        const { width, height } = firstPage.getSize();
-
-
-        // Cargar fuente Times-Roman (MISMA que unified generator)
-        const timesFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
-
-        // Helper para dibujar texto centrado (MISMA lógica que unified generator)
-        const drawText = (text: string, x: number, y: number, fontSize: number, align: 'left' | 'center' | 'right' = 'left') => {
-          const textWidth = timesFont.widthOfTextAtSize(text, fontSize);
-          const textHeight = timesFont.heightAtSize(fontSize);
-
-          let finalX = x;
-          if (align === 'center') {
-            finalX = x - (textWidth / 2);
-          } else if (align === 'right') {
-            finalX = x - textWidth;
-          }
-
-          const pdfY = height - y - (textHeight / 2);
-
-          firstPage.drawText(text, {
-            x: finalX,
-            y: pdfY,
-            size: fontSize,
-            font: timesFont,
-            color: rgb(0, 0, 0),
-          });
-        };
-
-        // COORDENADAS EXACTAS DEL CERTIFICADO INDIVIDUAL (de certificateConfig.ts)
-        // studentName (firstName + lastName juntos, centrado)
-        const studentName = `${student.first_name.toUpperCase()} ${student.last_name.toUpperCase()}`;
-        drawText(studentName, 390, 242, 14, 'center');
-
-        // birthDate (centrado)
-        if (student.birthDate) {
-          const birthDate = new Date(student.birthDate).toLocaleDateString('en-US');
-          drawText(birthDate, 390, 290, 12, 'center');
-
-        }
-
-        // classType (centrado)
-        const classType = (student.classType || 'DATE').toUpperCase();
-        drawText(classType, 385, 385, 18, 'center');
-
-        // classTitle (centrado) - puede ser "4hr Traffic Law & Substance Abuse Class"
-        const classTitle = '4hr Traffic Law & Substance Abuse Class';
-        drawText(classTitle, 390, 415, 12, 'center');
-
-        // certn - Certificate Number (centrado)
-        if (student.certn !== null && student.certn !== undefined) {
-          drawText(String(student.certn), 163, 394, 12, 'center');
-
-        }
-
-        // courseDate (centrado)
-        if (student.courseDate) {
-          const courseDate = new Date(student.courseDate).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            timeZone: 'UTC'
-          });
-          drawText(courseDate, 390, 487, 12, 'center');
-
-        }
-
-        // Generar el PDF
-        const pdfBytes = await pdfDoc.save();
-        return new Blob([pdfBytes as any], { type: "application/pdf" });
-      } catch (error) {
-        console.error("❌ Error generating DATE certificate:", error);
-        throw error;
+      // Cargar el template PDF
+      const templateResponse = await fetch(pdfTemplatePath);
+      if (!templateResponse.ok) {
+        throw new Error(`Failed to load PDF template: ${pdfTemplatePath}`);
       }
-    },
-    []
-  );
 
-  /**
-   * Genera PDFs individuales para múltiples estudiantes (para ZIP)
-   * Retorna un array de Blobs, uno por cada estudiante
-   */
+      const templateBytes = await templateResponse.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(templateBytes);
+
+      // Obtener la primera página
+      const pages = pdfDoc.getPages();
+      const firstPage = pages[0];
+      const { height } = firstPage.getSize();
+
+      // Cargar fuente Times-Roman
+      const timesFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+
+      // Helper para dibujar texto centrado/izquierda/derecha con color opcional
+      const drawText = (
+        text: string,
+        x: number,
+        y: number,
+        fontSize: number,
+        align: 'left' | 'center' | 'right' = 'left',
+        color = rgb(0, 0, 0)
+      ) => {
+        const textWidth = timesFont.widthOfTextAtSize(text, fontSize);
+        const textHeight = timesFont.heightAtSize(fontSize);
+
+        let finalX = x;
+        if (align === 'center') {
+          finalX = x - (textWidth / 2);
+        } else if (align === 'right') {
+          finalX = x - textWidth;
+        }
+
+        const pdfY = height - y - (textHeight / 2);
+
+        firstPage.drawText(text, {
+          x: finalX,
+          y: pdfY,
+          size: fontSize,
+          font: timesFont,
+          color,
+        });
+      };
+
+      // Dibujar datos en el certificado
+      // studentName (centrado) - 3 veces en diferentes posiciones
+      drawText(data.studentName, 263, 125, 14, 'center');
+      drawText(data.studentName, 263, 405, 14, 'center');
+      drawText(data.studentName, 263, 680, 14, 'center');
+
+      // birthDate (centrado)
+      if (data.birthDate) {
+        drawText(data.birthDate, 263, 135, 14, 'center');
+      drawText(data.birthDate, 263, 415, 14, 'center');
+      drawText(data.birthDate, 263, 780, 14, 'center');
+
+      }
+
+      // certn - Certificate Number (centrado) - usar color personalizado y un poco más grande
+      if (data.certificateNumber) {
+        // color #8e855f
+        const certColor = rgb(142 / 255, 133 / 255, 95 / 255);
+        drawText(data.certificateNumber, 163, 394, 12, 'center', certColor);
+      }
+
+      // courseDate (centrado)
+      if (data.courseDate) {
+        drawText(data.courseDate, 390, 500, 12, 'center');
+      }
+
+      // Generar el PDF
+      const pdfBytes = await pdfDoc.save();
+      return new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
+    } catch (error) {
+      console.error('Error generating DATE certificate PDF:', error);
+      throw error;
+    }
+  }, []);
+
   const generateMultipleDateCertificates = useCallback(
     async (students: Student[]) => {
-
-      const pdfBlobs: Blob[] = [];
-
-      for (const student of students) {
-        const pdfBlob = await generateDateCertificatePDF(student);
-        pdfBlobs.push(pdfBlob);
-      }
-
-
-      return pdfBlobs;
-    },
-    [generateDateCertificatePDF]
-  );
-
-  /**
-   * Genera un solo PDF con múltiples páginas (para Combined PDF)
-   * Retorna un solo Blob con todas las páginas
-   */
-  const generateCombinedDateCertificates = useCallback(
-    async (students: Student[]) => {
-
       try {
-        const combinedPdf = await PDFDocument.create();
-        const pdfTemplatePath = '/templates_certificates/date.pdf';
+        const pdfs: Blob[] = [];
+        const studentsPerPage = 3;
 
-        // Cargar el template una vez
-        const templateResponse = await fetch(pdfTemplatePath);
-        if (!templateResponse.ok) {
-          throw new Error(`Failed to load PDF template: ${pdfTemplatePath}`);
-        }
-        const templateBytes = await templateResponse.arrayBuffer();
+        // Procesar estudiantes en grupos de 3
+        for (let i = 0; i < students.length; i += studentsPerPage) {
+          const studentsGroup = students.slice(i, i + studentsPerPage);
 
-        // Generar cada certificado y agregarlo al PDF combinado
-        for (const student of students) {
+          // Cargar el template PDF
+          const pdfTemplatePath = '/templates_certificates/date.pdf';
+          const templateResponse = await fetch(pdfTemplatePath);
+          if (!templateResponse.ok) {
+            throw new Error(`Failed to load PDF template: ${pdfTemplatePath}`);
+          }
 
+          const templateBytes = await templateResponse.arrayBuffer();
           const pdfDoc = await PDFDocument.load(templateBytes);
+
+          // Obtener la primera página
           const pages = pdfDoc.getPages();
           const firstPage = pages[0];
           const { height } = firstPage.getSize();
 
+          // Cargar fuente Times-Roman
           const timesFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
 
-          // Helper para dibujar texto centrado (MISMA lógica que la función individual)
-          const drawText = (text: string, x: number, y: number, fontSize: number, align: 'left' | 'center' | 'right' = 'left') => {
+          // Helper para dibujar texto centrado/izquierda/derecha con color opcional
+          const drawText = (
+            text: string,
+            x: number,
+            y: number,
+            fontSize: number,
+            align: 'left' | 'center' | 'right' = 'left',
+            color = rgb(0, 0, 0)
+          ) => {
             const textWidth = timesFont.widthOfTextAtSize(text, fontSize);
             const textHeight = timesFont.heightAtSize(fontSize);
 
@@ -176,55 +153,63 @@ export function useDateCertificateGenerator() {
               y: pdfY,
               size: fontSize,
               font: timesFont,
-              color: rgb(0, 0, 0),
+              color,
             });
           };
 
-          // COORDENADAS EXACTAS (MISMAS que la función individual)
-          // studentName (firstName + lastName juntos, centrado)
-          const studentName = `${student.first_name.toUpperCase()} ${student.last_name.toUpperCase()}`;
-          drawText(studentName, 390, 242, 14, 'center');
+          // Dibujar cada estudiante en su posición correspondiente (1, 2, o 3)
+          for (let studentIndex = 0; studentIndex < studentsGroup.length; studentIndex++) {
+            const student = studentsGroup[studentIndex];
+            const position = (studentIndex + 1) as 1 | 2 | 3;
 
-          // birthDate (centrado)
-          if (student.birthDate) {
-            const birthDate = new Date(student.birthDate).toLocaleDateString('en-US');
-            drawText(birthDate, 390, 290, 12, 'center');
+            // Obtener coordenadas para esta posición
+            const coordinates = getDatePositionCoordinates(position);
+
+            // Preparar datos del estudiante
+            const studentName = `${student.first_name.toUpperCase()} ${student.last_name.toUpperCase()}`;
+            const birthDate = student.birthDate 
+              ? new Date(student.birthDate).toLocaleDateString('en-US')
+              : '';
+            const certificateNumber = student.certn !== null && student.certn !== undefined 
+              ? String(student.certn)
+              : '';
+            const courseDate = student.courseDate
+              ? new Date(student.courseDate).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                  timeZone: 'UTC'
+                })
+              : '';
+
+            // Dibujar cada campo en su posición
+            if (coordinates.studentName) {
+              drawText(studentName, coordinates.studentName.x, coordinates.studentName.y, 10, 'left');
+            }
+
+            if (coordinates.birthDate && birthDate) {
+              drawText(birthDate, coordinates.birthDate.x, coordinates.birthDate.y, 9, 'left');
+            }
+
+            if (coordinates.certificateNumber && certificateNumber) {
+              // Slightly larger font and custom color for certificate number (#8e855f)
+              const certColor = rgb(142 / 255, 133 / 255, 95 / 255);
+              drawText(certificateNumber, coordinates.certificateNumber.x, coordinates.certificateNumber.y, 12, 'left', certColor);
+            }
+
+            if (coordinates.courseDate && courseDate) {
+              drawText(courseDate, coordinates.courseDate.x, coordinates.courseDate.y, 9, 'left');
+            }
           }
 
-          // classType (centrado)
-          const classType = (student.classType || 'DATE').toUpperCase();
-          drawText(classType, 385, 385, 18, 'center');
-
-          // classTitle (centrado)
-          const classTitle = '4hr Traffic Law & Substance Abuse Class';
-          drawText(classTitle, 390, 415, 12, 'center');
-
-          // certn - Certificate Number (centrado)
-          if (student.certn !== null && student.certn !== undefined) {
-            drawText(String(student.certn), 163, 394, 12, 'center');
-          }
-
-          // courseDate (centrado)
-          if (student.courseDate) {
-            const courseDate = new Date(student.courseDate).toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-              timeZone: 'UTC'
-            });
-            drawText(courseDate, 390, 487, 12, 'center');
-          }
-
-          // Copiar la página al PDF combinado
-          const [copiedPage] = await combinedPdf.copyPages(pdfDoc, [0]);
-          combinedPdf.addPage(copiedPage);
+          // Guardar el PDF con los 3 estudiantes (o menos si es el último grupo)
+          const pdfBytes = await pdfDoc.save();
+          pdfs.push(new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' }));
         }
 
-        const pdfBytes = await combinedPdf.save();
-
-        return new Blob([pdfBytes as any], { type: "application/pdf" });
+        return pdfs;
       } catch (error) {
-        console.error("❌ Error generating combined DATE certificates:", error);
+        console.error('Error generating multiple DATE certificates:', error);
         throw error;
       }
     },
@@ -232,8 +217,7 @@ export function useDateCertificateGenerator() {
   );
 
   return {
-    generateDateCertificatePDF,
+    generateDateCertificate,
     generateMultipleDateCertificates,
-    generateCombinedDateCertificates,
   };
 }
