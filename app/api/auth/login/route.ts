@@ -76,7 +76,10 @@ export async function POST(req: NextRequest) {
     const adminData = {
       id: (admin._id as any).toString(),
       email: admin.email,
+      firstName: admin.firstName,
+      lastName: admin.lastName,
       role: admin.role || "admin",
+      permissions: admin.permissions || [],
     };
 
 

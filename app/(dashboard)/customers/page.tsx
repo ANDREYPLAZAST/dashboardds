@@ -10,6 +10,8 @@ import DashboardHeader from "@/components/layout/DashboardHeader";
 import Link from "next/link";
 import Delete from "@/components/custom ui/Delete";
 import { format } from "date-fns";
+import { CreateAdminModal } from "@/components/customers/CreateAdminModal";
+import { EditAdminModal } from "@/components/customers/EditAdminModal";
 
 interface Customer {
   id: string;
@@ -17,11 +19,18 @@ interface Customer {
   email: string;
   licenseNumber?: string;
   createdAt?: string;
+  role: string;
+  phoneNumber?: string;
+  firstName: string;
+  lastName: string;
 }
 
 const CustomersDashboard = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState<"user" | "admin">("user");
+  const [selectedAdmin, setSelectedAdmin] = useState<Customer | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
   const router = useRouter();
 
   const getCustomers = async () => {
@@ -57,20 +66,37 @@ const CustomersDashboard = () => {
     fetchData();
   }, []);
 
+  const filteredCustomers = customers.filter((c) => c.role === filter);
+
   if (loading) return <Loader />;
+
+  const handleAdminClick = (admin: Customer) => {
+    setSelectedAdmin(admin);
+    setEditModalOpen(true);
+  };
 
   const columns = [
     {
       key: "name",
       header: "Name",
       render: (customer: Customer) => (
-        <Link
-          href={`/customers/${customer.id}`}
-          className="flex items-center gap-2 font-semibold text-blue-500 hover:text-blue-700"
-        >
-          {customer.name}
-          <ArrowUpRight size={16} className="opacity-75" />
-        </Link>
+        filter === "admin" ? (
+          <button
+            onClick={() => handleAdminClick(customer)}
+            className="flex items-center gap-2 font-semibold text-blue-500 hover:text-blue-700"
+          >
+            {customer.name}
+            <ArrowUpRight size={16} className="opacity-75" />
+          </button>
+        ) : (
+          <Link
+            href={`/customers/${customer.id}`}
+            className="flex items-center gap-2 font-semibold text-blue-500 hover:text-blue-700"
+          >
+            {customer.name}
+            <ArrowUpRight size={16} className="opacity-75" />
+          </Link>
+        )
       ),
     },
     {
@@ -80,15 +106,29 @@ const CustomersDashboard = () => {
         <span className="font-medium text-gray-700">{customer.email}</span>
       ),
     },
-    {
-      key: "licenseNumber",
-      header: "License Number",
-      render: (customer: Customer) => (
-        <span className="font-medium text-gray-700">
-          {customer.licenseNumber || "Not available"}
-        </span>
-      ),
-    },
+    ...(filter === "user"
+      ? [
+        {
+          key: "licenseNumber",
+          header: "License Number",
+          render: (customer: Customer) => (
+            <span className="font-medium text-gray-700">
+              {customer.licenseNumber || "Not available"}
+            </span>
+          ),
+        },
+      ]
+      : [
+        {
+          key: "phoneNumber",
+          header: "Phone",
+          render: (customer: Customer) => (
+            <span className="font-medium text-gray-700">
+              {customer.phoneNumber || "Not available"}
+            </span>
+          ),
+        },
+      ]),
     {
       key: "createdAt",
       header: "Registration Date",
@@ -101,32 +141,65 @@ const CustomersDashboard = () => {
         );
       },
     },
-    {
-      key: "actions",
-      header: "Actions",
-      render: (customer: Customer) => <Delete item="customers" id={customer.id} />,
-    },
+    ...(filter === "user"
+      ? [
+        {
+          key: "actions",
+          header: "Actions",
+          render: (customer: Customer) => (
+            <Delete item="customers" id={customer.id} />
+          ),
+        },
+      ]
+      : []),
   ];
 
   return (
     <div className="p-5">
       <DashboardHeader title="Customers">
-        <Button
-          className="bg-blue-500 text-white"
-          onClick={() => router.push("/customers/new")}
-        >
-          <Plus className="size-4 mr-2" />
-          Create customer
-        </Button>
+        <div className="flex gap-2">
+          <CreateAdminModal onSuccess={getCustomers} />
+          <Button
+            className="bg-blue-500 text-white"
+            onClick={() => router.push("/customers/new")}
+          >
+            <Plus className="size-4 mr-2" />
+            Create customer
+          </Button>
+        </div>
       </DashboardHeader>
       <div className="mt-6">
+        <div className="flex gap-4 mb-4">
+          <Button
+            className={filter === "user" ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}
+            onClick={() => setFilter("user")}
+          >
+            Users
+          </Button>
+          <Button
+            className={filter === "admin" ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}
+            onClick={() => setFilter("admin")}
+          >
+            Admins
+          </Button>
+        </div>
         <Separator className="bg-gray-400 my-4" />
         <SimpleDataTable
-          data={customers}
+          data={filteredCustomers}
           columns={columns}
-          searchKeys={["name", "email", "licenseNumber"]}
+          searchKeys={["name", "email", "licenseNumber", "phoneNumber"]}
         />
       </div>
+
+      <EditAdminModal
+        admin={selectedAdmin}
+        open={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false);
+          setSelectedAdmin(null);
+        }}
+        onSuccess={getCustomers}
+      />
     </div>
   );
 };

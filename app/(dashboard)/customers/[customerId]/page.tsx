@@ -8,6 +8,8 @@ import CertificateHistory from "@/components/customers/CertificateHistory";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+
 export type CustomerFetchType = {
   id: string;
   firstName: string;
@@ -44,6 +46,11 @@ type CustomerType = {
   payedAmount: number;
   method: string;
   createdAt?: string; // Añadiendo el campo de fecha de creación
+  role?: string;
+  publicMetadata?: {
+    role?: string;
+  };
+  emailAddresses?: { emailAddress: string }[];
 };
 type CustomerEmailAddressesType = {
   emailAddress: string;
@@ -92,6 +99,50 @@ const CustomerDetails = () => {
   if (!customer) return <div>Customer not found</div>;
 
   const customerId = params?.customerId as string;
+
+  if (customer.publicMetadata?.role === "admin" || (customer as any).role === "admin") {
+    return (
+      <div className="max-w-5xl p-8 mx-auto bg-white rounded-xl shadow-lg mt-8">
+        <h1 className="text-3xl font-bold text-gray-800 mb-6">Admin Details</h1>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">First Name</label>
+              <div className="mt-1 p-3 bg-gray-50 rounded-md border border-gray-200 text-gray-900">
+                {customer.firstName}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Last Name</label>
+              <div className="mt-1 p-3 bg-gray-50 rounded-md border border-gray-200 text-gray-900">
+                {customer.lastName}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Email</label>
+              <div className="mt-1 p-3 bg-gray-50 rounded-md border border-gray-200 text-gray-900">
+                {customer.email || customer.emailAddresses?.[0]?.emailAddress}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Phone</label>
+              <div className="mt-1 p-3 bg-gray-50 rounded-md border border-gray-200 text-gray-900">
+                {customer.phoneNumber || "Not available"}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="mt-8 flex justify-end">
+          <Button
+            onClick={() => window.history.back()}
+            className="bg-gray-100 text-gray-800 hover:bg-gray-200"
+          >
+            Back
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="px-2 sm:px-4 lg:px-6 py-8">

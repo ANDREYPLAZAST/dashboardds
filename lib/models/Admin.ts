@@ -6,6 +6,7 @@ export interface IAdmin extends Document {
   password: string;
   firstName: string;
   lastName: string;
+  phoneNumber?: string;
   role: string;
   permissions: string[];
   active: boolean;
@@ -22,24 +23,27 @@ const AdminSchema: Schema = new Schema({
   password: { type: String, required: true },
   firstName: { type: String, required: true },
   lastName: { type: String, required: true },
-  role: { 
-    type: String, 
-    enum: ["super_admin", "admin", "manager", "support"], 
-    default: "admin" 
+  phoneNumber: { type: String },
+  role: {
+    type: String,
+    enum: ["super_admin", "admin", "manager", "support"],
+    default: "admin"
   },
-  permissions: { 
-    type: [String], 
-    default: [],
+  permissions: [{
+    type: String,
     enum: [
-      "users_read", "users_write", "users_delete",
-      "orders_read", "orders_write", "orders_delete",
-      "classes_read", "classes_write", "classes_delete",
-      "instructors_read", "instructors_write", "instructors_delete",
-      "certificates_read", "certificates_write", "certificates_delete",
-      "settings_read", "settings_write",
-      "reports_read", "reports_write"
+      "Dashboard",
+      "Classes",
+      "Driving Lessons",
+      "Orders",
+      "Instructors",
+      "Traffic School",
+      "Driving Test/Lessons",
+      "Locations",
+      "Customers",
+      "SEO"
     ]
-  },
+  }],
   active: { type: Boolean, default: true },
   lastLogin: { type: Date },
   loginAttempts: { type: Number, default: 0 },
