@@ -11,23 +11,59 @@ export async function GET(
     await dbConnect();
 
     const { classId } = await params;
+    console.log("Fetching ticket class with ID:", classId);
+    
     const ticketClass = await TicketClass.findById(classId);
 
     if (!ticketClass) {
+      console.error("Ticket class not found for ID:", classId);
       return NextResponse.json(
         { success: false, message: "Ticket class not found" },
         { status: 404 }
       );
     }
 
+    // Convert to plain object and serialize ObjectIds to strings
+    const ticketClassObj = ticketClass.toObject ? ticketClass.toObject() : ticketClass;
+    
+    // Log the classId before serialization
+    console.log("Ticket class found. Raw classId type:", typeof ticketClassObj.classId);
+    console.log("Ticket class found. Raw classId value:", ticketClassObj.classId);
+    
+    const serializedClassId = ticketClassObj.classId?.toString() || ticketClassObj.classId;
+    console.log("Serialized classId:", serializedClassId);
+    
+    const serializedData = {
+      ...ticketClassObj,
+      _id: ticketClassObj._id?.toString() || ticketClassObj._id,
+      locationId: ticketClassObj.locationId?.toString() || ticketClassObj.locationId,
+      classId: serializedClassId,
+      students: Array.isArray(ticketClassObj.students) 
+        ? ticketClassObj.students.map((id: any) => {
+            if (id && typeof id === 'object' && id.toString) {
+              return id.toString();
+            }
+            return id?.toString() || id;
+          })
+        : [],
+      studentRequests: Array.isArray(ticketClassObj.studentRequests)
+        ? ticketClassObj.studentRequests.map((id: any) => {
+            if (id && typeof id === 'object' && id.toString) {
+              return id.toString();
+            }
+            return id?.toString() || id;
+          })
+        : [],
+    };
+
     return NextResponse.json({
       success: true,
-      data: ticketClass
+      data: serializedData
     });
   } catch (error) {
     console.error("Error fetching ticket class:", error);
     return NextResponse.json(
-      { success: false, message: "Internal server error" },
+      { success: false, message: "Internal server error", error: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
