@@ -11,15 +11,76 @@ export async function GET(
     await dbConnect();
     
     const { classId } = await params;
-    const drivingClass = await DrivingClass.findById(classId);
+    
+    // Validate classId format
+    if (!classId || classId === 'undefined' || classId === 'null') {
+      console.error("Invalid classId provided:", classId);
+      return NextResponse.json(
+        { success: false, message: "Invalid class ID provided" },
+        { status: 400 }
+      );
+    }
+
+    // Check if classId is a valid MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(classId)) {
+      console.error("Invalid ObjectId format:", classId);
+      return NextResponse.json(
+        { success: false, message: "Invalid class ID format" },
+        { status: 400 }
+      );
+    }
+
+    console.log("Searching for driving class with ID:", classId);
+    console.log("ClassId type:", typeof classId);
+    
+    // Try multiple search methods
+    let drivingClass = await DrivingClass.findById(classId);
+    
+    // If not found, try with ObjectId conversion
+    if (!drivingClass) {
+      try {
+        const objectId = new mongoose.Types.ObjectId(classId);
+        drivingClass = await DrivingClass.findById(objectId);
+        console.log("Tried with ObjectId conversion, result:", drivingClass ? "found" : "not found");
+      } catch (objIdError) {
+        console.error("Error converting to ObjectId:", objIdError);
+      }
+    }
+    
+    // If still not found, try with findOne
+    if (!drivingClass) {
+      try {
+        const objectId = new mongoose.Types.ObjectId(classId);
+        drivingClass = await DrivingClass.findOne({ _id: objectId });
+        console.log("Tried with findOne, result:", drivingClass ? "found" : "not found");
+      } catch (objIdError) {
+        console.error("Error with findOne:", objIdError);
+      }
+    }
     
     if (!drivingClass) {
+      console.error("Driving class not found for ID:", classId);
+      // Try to find if there are any classes at all
+      const totalClasses = await DrivingClass.countDocuments();
+      console.log("Total classes in database:", totalClasses);
+      
+      // Get a sample of class IDs to help debug
+      const sampleClasses = await DrivingClass.find({}).select('_id title').limit(5).lean();
+      console.log("Sample class IDs:", sampleClasses.map(c => ({ id: c._id?.toString(), title: c.title })));
+      
       return NextResponse.json(
-        { success: false, message: "Driving class not found" },
+        { 
+          success: false, 
+          message: "Driving class not found", 
+          classId, 
+          totalClasses,
+          sampleClasses: sampleClasses.map(c => ({ id: c._id?.toString(), title: c.title }))
+        },
         { status: 404 }
       );
     }
 
+    console.log("Found driving class:", drivingClass.title);
     return NextResponse.json({
       success: true,
       data: drivingClass
@@ -27,7 +88,7 @@ export async function GET(
   } catch (error) {
     console.error("Error fetching driving class:", error);
     return NextResponse.json(
-      { success: false, message: "Internal server error" },
+      { success: false, message: "Internal server error", error: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

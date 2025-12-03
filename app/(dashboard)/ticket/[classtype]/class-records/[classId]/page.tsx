@@ -142,24 +142,32 @@ export default function Page() {
       // First, get the ticket class to find the real classId
       const ticketClassResponse = await fetch(`/api/ticket/classes/${classId}`);
       if (!ticketClassResponse.ok) {
-        throw new Error('Failed to fetch ticket class');
+        const errorText = await ticketClassResponse.text();
+        console.error('Ticket class response error:', errorText);
+        throw new Error(`Failed to fetch ticket class: ${ticketClassResponse.status}`);
       }
       
       const ticketClassData = await ticketClassResponse.json();
-      const realClassId = ticketClassData.data.classId;
       
+      if (!ticketClassData.success || !ticketClassData.data) {
+        console.error('Invalid ticket class response:', ticketClassData);
+        throw new Error('Invalid response from ticket class API');
+      }
+      
+      // Convert classId to string if it's an ObjectId
+      let realClassId = ticketClassData.data.classId;
       if (!realClassId) {
+        console.error('Ticket class data:', ticketClassData.data);
         throw new Error('No classId found in ticket class');
       }
-
-      // Then, get the driving class information
-      const drivingClassResponse = await fetch(`/api/classes/${realClassId}`);
-      if (!drivingClassResponse.ok) {
-        throw new Error('Failed to fetch driving class');
+      
+      // Convert ObjectId to string if needed
+      if (typeof realClassId === 'object' && realClassId.toString) {
+        realClassId = realClassId.toString();
+      } else if (typeof realClassId !== 'string') {
+        realClassId = String(realClassId);
       }
-      
-      const drivingClassData = await drivingClassResponse.json();
-      
+
       // Decode class type for display
       const decodedClassType = decodeURIComponent(classType);
       
@@ -168,8 +176,31 @@ export default function Page() {
         ? decodedClassType.toLowerCase() 
         : 'date';
       
+      // Try to get the driving class information, but don't fail if it doesn't exist
+      let drivingClassData: any = null;
+      let classTitle = 'Class';
+      let classTypeFromDB = certificateType;
+      
+      const drivingClassResponse = await fetch(`/api/classes/${realClassId}`);
+      if (drivingClassResponse.ok) {
+        const responseData = await drivingClassResponse.json();
+        if (responseData.success && responseData.data) {
+          drivingClassData = responseData;
+          classTitle = responseData.data.title || 'Class';
+          classTypeFromDB = responseData.data.classType || certificateType;
+        } else {
+          console.warn('Driving class not found, using ticket class type:', ticketClassData.data.type);
+          // Use the type from ticket class as fallback
+          classTypeFromDB = ticketClassData.data.type || certificateType;
+        }
+      } else {
+        console.warn('Driving class not found (404), using ticket class type:', ticketClassData.data.type);
+        // Use the type from ticket class as fallback
+        classTypeFromDB = ticketClassData.data.type || certificateType;
+      }
+      
       // Use certificateConfigurations.ts directly (IGNORE database templates)
-      const rawCertType = drivingClassData.data.classType || certificateType;
+      const rawCertType = classTypeFromDB || certificateType;
       const certType = rawCertType.toUpperCase().replace(/\s+/g, '-');
 
       let fetchedTemplate: CertificateTemplate | null = null;
@@ -265,8 +296,8 @@ export default function Page() {
       const studentsWithClassInfo = studentsData.map((student: Student) => ({
         ...student,
         type: certificateType, // Use determined certificate type
-        classTitle: drivingClassData.data.title,
-        classType: drivingClassData.data.classType,
+        classTitle: classTitle,
+        classType: classTypeFromDB,
         // Add default values for school address and phone (editable)
         schoolAddress: student.schoolAddress || '3167 Forest Hill Blvd West Palm Beach, Florida 33406',
         schoolPhone: student.schoolPhone || '(561) 969-0150'
@@ -275,7 +306,8 @@ export default function Page() {
       setStudents(studentsWithClassInfo);
     } catch (error) {
       console.error('Error fetching dynamic class data:', error);
-      toast.error('Error loading class information');
+      const errorMessage = error instanceof Error ? error.message : 'Error loading class information';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
