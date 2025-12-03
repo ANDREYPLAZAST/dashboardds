@@ -3,31 +3,31 @@ import { config } from 'dotenv';
 
 config();
 
-// Verificar variables de entorno requeridas
-const requiredEnvVars = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS'];
+// Verificar variables de entorno requeridas (solo credenciales)
+const requiredEnvVars = ['SMTP_USER', 'SMTP_PASS'];
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
 
 if (missingEnvVars.length > 0) {
-  console.error('❌ Faltan variables de entorno requeridas para el servicio de correo:', missingEnvVars);
-  process.exit(1);
+  console.warn('⚠️ Faltan variables de entorno para el servicio de correo:', missingEnvVars);
 }
 
-// Crear el transporter con configuración mejorada
+// Crear el transporter con configuración de FastMail
 export const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
-  secure: process.env.SMTP_SECURE === 'true',
+  host: 'smtp.fastmail.com',
+  port: 587,
+  secure: false, // false for port 587, true for port 465
+  requireTLS: true,
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS
   },
   tls: {
-    rejectUnauthorized: false // Permite certificados autofirmados
+    rejectUnauthorized: false
   }
 });
 
 // Verificar la conexión al iniciar
-transporter.verify(function(error: Error | null) {
+transporter.verify(function (error: Error | null) {
   if (error) {
     console.error('❌ Error en la configuración del servicio de correo:', error);
   }
@@ -41,10 +41,10 @@ export const sendEmail = async (options: {
 }) => {
   try {
     const mailOptions = {
-      from: process.env.SMTP_USER,
+      from: `"Affordable Driving Traffic School" <${process.env.SMTP_USER}>`,
       ...options
     };
-    
+
     const info = await transporter.sendMail(mailOptions);
     return { success: true, messageId: info.messageId };
   } catch (error) {
